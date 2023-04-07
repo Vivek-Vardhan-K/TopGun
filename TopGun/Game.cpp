@@ -3,15 +3,18 @@
 #include <iostream>
 #include <vector>
 using namespace std;
-#define pr(a) cout<<(a)<<'\n'
+#define pp(a,b) cout<<a<<'\t'<<b<<'\n'
+#define pr(a) cout<<a<<'\n'
 
 void Game::initVariables() {
 	turretFacingAngle = 90;
 	MOUSE_SENSITIVITY_SCALER = 1900;
 	WIDTH_SCREEN=1920;
 	HEIGHT_SCREEN=1080;
+	BULLET_SPEED = 15;
 	setTexture();
-	bullets.resize(100);
+	setSounds();
+	bullets.resize(1000);
 	for (int i = 0; i < bullets.size();i++) {
 		bullets[i].isActive = false;
 		bullets[i].body.setRadius(2.f);
@@ -42,6 +45,14 @@ void Game::setTexture() {
 	//turret.body.setPosition(100, 25);
 }
 
+void Game::setSounds() {
+	if (!buffer.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Sounds\\gunsound.wav")) {
+		cout << "unable to load gunshot sound" << '\n';
+		system("pause");
+	}
+	gunSound.setBuffer(buffer);
+}
+
 
 bool Game::running()
 {
@@ -50,7 +61,14 @@ bool Game::running()
 
 void Game::fireBullets() {
 	this->bullets[nthBullet].isActive = 1;
+	int r = 34;
+	Vector2f currPos = bullets[nthBullet].body.getPosition();
 	bullets[nthBullet].body.setFillColor(Color::White);
+	bullets[nthBullet].launchAngle = turretFacingAngle-1; //image correction
+	bullets[nthBullet].body.setPosition(currPos.x+r* cos((-1) * degreeToRadians(bullets[nthBullet].launchAngle - 90))
+										, currPos.y- r* sin((-1) * degreeToRadians(bullets[nthBullet].launchAngle - 90)));
+	bullets[nthBullet].clock.restart();
+	gunSound.play();
 	nthBullet++;
 }
 
@@ -59,31 +77,39 @@ void Game::pollEvent() {
 		float currPollX = Mouse::getPosition(*this->window).x;
 		if (currPollX >= WIDTH_SCREEN - 1 || currPollX <= 1) { // mouse out of bounds 
 			lastPollX = WIDTH_SCREEN / 2;
-			Mouse::setPosition(Vector2i((int) WIDTH_SCREEN / 2, (int)HEIGHT_SCREEN / 2));
+			Mouse::setPosition(Vector2i((int) (WIDTH_SCREEN / 2), (int)HEIGHT_SCREEN / 2));
 			return;
 		}
 		if (ev.type == Event::KeyReleased && ev.key.code == Keyboard::Escape) {
 			this->window->close();
+			system("pause");
 		}
 		if (ev.type==Event::MouseMoved) {
 			turretFacingAngle -= turretFacingAngle*(lastPollX-currPollX)/MOUSE_SENSITIVITY_SCALER;
-			pr(turretFacingAngle);
+			if (turretFacingAngle <= 80)turretFacingAngle += 720; //avoiding zero angle
 			lastPollX = Mouse::getPosition(*this->window).x;
 		}
 		if (ev.type == Event::MouseButtonPressed) {
 			fireBullets();
 		}
+		//cout << lastPollX << " " << currPollX << " " << turretFacingAngle << '\n'; //debug
 	}
 }
 
 
 void Game::update(){
 	this->pollEvent();
+	
 	turret.body.setRotation(turretFacingAngle);
 	for (int i = 0; i < bullets.size(); i++) {
 		if (bullets[i].isActive) {
-			
-			bullets[i].body.setPosition(Vector2f(1920 / 2, bullets[i].body.getPosition().y - (5 * bullets[i].clock.getElapsedTime().asSeconds())));
+			float currBPosX = bullets[i].body.getPosition().x; float currBPosY = bullets[i].body.getPosition().y;
+			float velx = cos((-1) *degreeToRadians(bullets[i].launchAngle-90)) * (BULLET_SPEED * bullets[i].clock.getElapsedTime().asSeconds());
+			float vely = sin((-1) * degreeToRadians(bullets[i].launchAngle-90)) * (BULLET_SPEED * bullets[i].clock.getElapsedTime().asSeconds());
+			bullets[i].body.setPosition(Vector2f(currBPosX + velx, currBPosY - vely));
+			if (i == 0) {
+				//cout<<
+			}
 		}
 		else {
 			break;
@@ -137,7 +163,7 @@ float Game::radToDegrees(float rad)
 
 float Game::degreeToRadians(float deg)
 {
-	return deg * 3.1415 / 180;
+	return deg * 3.14159 / 180;
 }
 
 Game::Game(){
