@@ -11,16 +11,27 @@ void Game::initVariables() {
 	MOUSE_SENSITIVITY_SCALER = 1900;
 	WIDTH_SCREEN=1920;
 	HEIGHT_SCREEN=1080;
-	BULLET_SPEED = 15;
-	setTexture();
+	BULLET_SPEED = 45;
+	ENEMY_SPEED=5;
+	ENEMY_ATTRACTION=0.5;
 	setSounds();
 	bullets.resize(1000);
+	enemies.resize(100);
+	explosionTextures.resize(5);
+	setTexture();
 	for (int i = 0; i < bullets.size();i++) {
 		bullets[i].isActive = false;
 		bullets[i].body.setRadius(2.f);
 		bullets[i].body.setFillColor(Color::White);
 		bullets[i].body.setPosition(1920 / 2, 1080 / 2);
+		if (i < enemies.size()) {
+			enemies[i].isActive = 0;
+			enemies[i].explodeState = 5;
+		}
 	}
+	enemies[0].isActive = 1; //temp
+	enemies[0].ENEMY_INITIAL_ANGLE = getEnemyToTurretAngleInRadians(enemies[0]);
+	enemies[0].body.setPosition(10, 10);
 	nthBullet = 0;
 }
 
@@ -30,7 +41,7 @@ void Game::initWindow() {
 	sf::ContextSettings settings;
 	settings.antialiasingLevel = 8;
 	this->window = new RenderWindow(videoMode, "TopGun", Style::Close | Style::Fullscreen, settings);
-	this->window->setFramerateLimit(120);
+	this->window->setFramerateLimit(60);
 	window->setKeyRepeatEnabled(true);
 	window->setMouseCursorVisible(false);
 }
@@ -38,11 +49,22 @@ void Game::initWindow() {
 void Game::setTexture() {
 	//fix later 1 (location is not relative)
 	if (!texTurret.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\turret.png")) {
-		std::cout << "Texture not loaded\n";
+		std::cout << "turret Texture not loaded\n";
 		system("pause");
 	}
+	if (!enemyTexture.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\enemy1.png")) {
+		std::cout << "enemy Texture not loaded\n";
+		system("pause");
+	}
+	for (int i = 0; i < 5; i++) {
+		if (!explosionTextures[i].loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\explosions\\Explosion_" + to_string(i + 1) + ".png")) {
+			std::cout << "explosion Textures not loaded\n";
+			system("pause");
+		}
+	}
+	enemies[0].body.setTexture(&enemyTexture);
+	enemies[0].body.setSize(Vector2f(150.f, 150.f));
 	turret.body.setTexture(texTurret);
-	//turret.body.setPosition(100, 25);
 }
 
 void Game::setSounds() {
@@ -50,7 +72,12 @@ void Game::setSounds() {
 		cout << "unable to load gunshot sound" << '\n';
 		system("pause");
 	}
+	if (!explodeBuffer.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Sounds\\explosion.wav")) {
+		cout << "unable to load explode" << '\n';
+		system("pause");
+	}
 	gunSound.setBuffer(buffer);
+	explodeSound.setBuffer(explodeBuffer);
 }
 
 
@@ -96,25 +123,41 @@ void Game::pollEvent() {
 	}
 }
 
-
 void Game::update(){
 	this->pollEvent();
-	
 	turret.body.setRotation(turretFacingAngle);
-	for (int i = 0; i < bullets.size(); i++) {
+	for (int i = 0; i < bullets.size(); i++) {  //bullet update loop
 		if (bullets[i].isActive) {
 			float currBPosX = bullets[i].body.getPosition().x; float currBPosY = bullets[i].body.getPosition().y;
+			if (currBPosX<0 || currBPosX > WIDTH_SCREEN || currBPosY<0 || currBPosY> HEIGHT_SCREEN) {
+				bullets[i].isActive = false;
+			}
 			float velx = cos((-1) *degreeToRadians(bullets[i].launchAngle-90)) * (BULLET_SPEED * bullets[i].clock.getElapsedTime().asSeconds());
 			float vely = sin((-1) * degreeToRadians(bullets[i].launchAngle-90)) * (BULLET_SPEED * bullets[i].clock.getElapsedTime().asSeconds());
 			bullets[i].body.setPosition(Vector2f(currBPosX + velx, currBPosY - vely));
-			if (i == 0) {
-				//cout<<
+		}
+	}
+
+	for (int i = 0; i < enemies.size(); i++) { //enemy update loop
+		if (enemies[i].isActive) {
+			updateEnemyPosition(enemies[i]);
+			for (int j = 0; j < bullets.size(); j++) {
+				if (bullets[j].isActive && collisionDetection(bullets[j],enemies[i])) {
+					enemies[i].isActive = false;
+					bullets[i].isActive = false;
+					explode(enemies[i]);
+				}
 			}
 		}
 		else {
-			break;
+			if (enemies[i].explodeState < 5) {
+				int GIF_INTERVAL = 125;//in ms
+				enemies[i].explodeState = enemies[i].clock.getElapsedTime().asMilliseconds() / GIF_INTERVAL;
+				if(enemies[i].explodeState < 5)enemies[i].body.setTexture(&explosionTextures[enemies[i].explodeState]);
+			}
 		}
 	}
+
 }
 
 
@@ -125,11 +168,44 @@ void Game::render(){
 		if (bullets[i].isActive) {
 			this->window->draw(bullets[i].body);
 		}
-		else {
-			break;
+		if (i < enemies.size()) {
+			if (enemies[i].isActive) {
+				window->draw(enemies[i].body);
+			}
+			else {
+				if (enemies[i].explodeState < 5) {
+					window->draw(enemies[i].body);
+				}
+			}
+			
 		}
 	}
+	
 	this->window->display();
+}
+
+
+//game actions
+
+void Game::updateEnemyPosition(Enemy& enemy) {
+	float tx = turret.body.getPosition().x;
+	float ty = turret.body.getPosition().y;
+	enemy.ENEMY_INITIAL_ANGLE += 1;
+	ENEMY_SPEED++;
+	int d = getEnemyDistFromCenter(enemy)+1;
+	d -= ENEMY_ATTRACTION;
+	float del = degreeToRadians(enemy.ENEMY_INITIAL_ANGLE);
+	float nx = tx + (d * cos(del));
+	float ny = ty - (d * sin(del));
+	
+	enemy.body.setPosition(nx, ny);
+	//enemy.body.setPosition(ePos.x+(d*ENEMY_SPEED*sin(theta)),ePos.y+(d*ENEMY_SPEED*cos(theta)));
+}
+
+void Game::explode(Enemy& enemy) {
+	enemy.explodeState = 0;
+	enemy.clock.restart();
+	explodeSound.play();
 }
 
 
@@ -143,14 +219,45 @@ float Game::getTurret2CursorAngle(){
 	int Y = turrY - currY;
 	float distFromCenter = sqrt(pow(currX - turrX, 2) + pow(currY - turrY, 2));
 	float angle = atan2(currY - turrY, currX - turrX) * 57.296f;
-	//angle = (angle * distFromCenter) / this->MOUSE_SENSITIVITY_SCALER;
 	return angle+90.f;
+}
+
+float Game::getEnemyToTurretAngleInRadians(Enemy& enemy) {
+	int currX = enemy.body.getPosition().x;
+	int currY = enemy.body.getPosition().y;
+	int turrX = turret.body.getPosition().x;
+	int turrY = turret.body.getPosition().y;
+	int X = currX - turrX;
+	int Y = turrY - currY;
+	float distFromCenter = sqrt(pow(currX - turrX, 2) + pow(currY - turrY, 2));
+	float angle = atan2(currY - turrY, currX - turrX);
+	angle = radToDegrees(angle);
+	return -1*angle ;
+}
+
+
+bool Game::collisionDetection(Bullet& b,Enemy& e) {
+	Vector2f bPos = b.body.getPosition();
+	Vector2f ePos = e.body.getPosition();
+	//cout << bPos.x << ' ' << bPos.y << '\t' << ePos.x << ' ' << ePos.y << '\n';
+	if (bPos.x <= ePos.x + e.body.getSize().x && bPos.x >= ePos.x && bPos.y <= ePos.y + e.body.getSize().y && bPos.y >= ePos.y) {
+		return true;
+	}
+	return false;
 }
 
 
 float Game::getMouseDistFromCenter() {
 	int currX = Mouse::getPosition(*this->window).x;
 	int currY = Mouse::getPosition(*this->window).y;
+	int turrX = turret.body.getPosition().x;
+	int turrY = turret.body.getPosition().y;
+	return sqrt(pow(currX - turrX, 2) + pow(currY - turrY, 2));
+}
+
+float Game::getEnemyDistFromCenter(Enemy& enemy) {
+	int currX = enemy.body.getPosition().x;
+	int currY = enemy.body.getPosition().y;
 	int turrX = turret.body.getPosition().x;
 	int turrY = turret.body.getPosition().y;
 	return sqrt(pow(currX - turrX, 2) + pow(currY - turrY, 2));
@@ -174,5 +281,3 @@ Game::Game(){
 Game::~Game(){
 	delete this->window;
 }
-
-
