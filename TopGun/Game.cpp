@@ -9,8 +9,7 @@ using namespace std;
 void Game::initVariables() {
 	turretFacingAngle = 90;
 	MOUSE_SENSITIVITY_SCALER = 1900;
-	WIDTH_SCREEN=1920;
-	HEIGHT_SCREEN=1080;
+
 	BULLET_SPEED = 45;
 	ENEMY_SPEED=5;
 	ENEMY_ATTRACTION=0.5;
@@ -23,7 +22,7 @@ void Game::initVariables() {
 		bullets[i].isActive = false;
 		bullets[i].body.setRadius(2.f);
 		bullets[i].body.setFillColor(Color::White);
-		bullets[i].body.setPosition(1920 / 2, 1080 / 2);
+		bullets[i].body.setPosition(WIDTH_SCREEN / 2, HEIGHT_SCREEN / 2);
 		if (i < enemies.size()) {
 			enemies[i].isActive = 0;
 			enemies[i].explodeState = 5;
@@ -48,16 +47,16 @@ void Game::initWindow() {
 
 void Game::setTexture() {
 	//fix later 1 (location is not relative)
-	if (!texTurret.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\turret.png")) {
+	if (!texTurret.loadFromFile("../Assets/turret.png")) {
 		std::cout << "turret Texture not loaded\n";
 		system("pause");
 	}
-	if (!enemyTexture.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\enemy1.png")) {
+	if (!enemyTexture.loadFromFile("../Assets/enemy1.png")) {
 		std::cout << "enemy Texture not loaded\n";
 		system("pause");
 	}
 	for (int i = 0; i < 5; i++) {
-		if (!explosionTextures[i].loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Assets\\explosions\\Explosion_" + to_string(i + 1) + ".png")) {
+		if (!explosionTextures[i].loadFromFile("../Assets/explosions/Explosion_" + to_string(i + 1) + ".png")) {
 			std::cout << "explosion Textures not loaded\n";
 			system("pause");
 		}
@@ -68,11 +67,11 @@ void Game::setTexture() {
 }
 
 void Game::setSounds() {
-	if (!buffer.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Sounds\\gunsound.wav")) {
+	if (!buffer.loadFromFile("../Sounds/gunsound.wav")) {
 		cout << "unable to load gunshot sound" << '\n';
 		system("pause");
 	}
-	if (!explodeBuffer.loadFromFile("C:\\Users\\vivek\\source\\repos\\TopGun\\Sounds\\explosion.wav")) {
+	if (!explodeBuffer.loadFromFile("../Sounds/explosion.wav")) {
 		cout << "unable to load explode" << '\n';
 		system("pause");
 	}
@@ -87,7 +86,7 @@ bool Game::running()
 }
 
 void Game::fireBullets() {
-	this->bullets[nthBullet].isActive = 1;
+	this->bullets[nthBullet].isActive = true;
 	int r = 34;
 	Vector2f currPos = bullets[nthBullet].body.getPosition();
 	bullets[nthBullet].body.setFillColor(Color::White);

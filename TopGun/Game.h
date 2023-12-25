@@ -11,12 +11,13 @@ public:
 	bool running();
 	void update();
 	void render();
-
+	const static int WIDTH_SCREEN=3840;
+	const static int HEIGHT_SCREEN=2160;
 	Game();
 	virtual ~Game();
 private:
-	RenderWindow* window;
-	Event ev;
+	RenderWindow* window{};
+	Event ev{};
 	VideoMode videoMode;
 	Clock fireClock;
 	SoundBuffer buffer;
@@ -47,20 +48,19 @@ private:
 	vector<Enemy> enemies;
 	vector<Texture> explosionTextures;
 
-	int BULLET_SPEED;
-	int WIDTH_SCREEN;
-	int HEIGHT_SCREEN;
-	int ENEMY_SPEED;
-	float ENEMY_ATTRACTION;
+	int BULLET_SPEED{};
 
-	int nthBullet;
+	int ENEMY_SPEED{};
+	float ENEMY_ATTRACTION{};
 
-	float MOUSE_SENSITIVITY_SCALER; // the higher the less sensitive
+	int nthBullet{};
+
+	float MOUSE_SENSITIVITY_SCALER{}; // the higher the less sensitive
 	//mouse polls
-	int lastPollX; 
-	int lastPollY;
+	int lastPollX{};
+	int lastPollY{};
 
-	int turretFacingAngle;
+	int turretFacingAngle{};
 
 	void fireBullets();
 	void pollEvent();
